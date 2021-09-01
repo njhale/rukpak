@@ -1,0 +1,85 @@
+serviceAccount: {
+    "k8s-provisioner": {
+        kind:       "ServiceAccount"
+        apiVersion: "v1"
+        metadata: {
+            name: "k8s-provisioner"
+        }
+    }
+}
+clusterRole: {
+    "system:controller:k8s-provisioner": {
+        apiVersion: "rbac.authorization.k8s.io/v1"
+        kind:       "ClusterRole"
+        metadata: {
+            name: "system:controller:k8s-provisioner"
+        }
+        rules: [{
+            apiGroups: ["*"]
+            resources: ["*"]
+            verbs: ["*"]
+        }, {
+            nonResourceURLs: ["*"]
+            verbs: ["*"]
+        }]
+    }
+}
+deployment: {
+    "k8s-provisioner": {
+        apiVersion: "apps/v1"
+        kind:       "Deployment"
+        metadata: {
+            name:      "k8s-provisioner"
+            namespace: "olm"
+            labels: {
+                app: "k8s-provisioner"
+            }
+        }
+        spec: {
+            strategy: {
+                type: "RollingUpdate"
+            }
+            replicas: 1
+            selector: {
+                matchLabels: {
+                    app: "k8s-provisioner"
+                }
+            }
+            template: {
+                metadata: {
+                    labels: {
+                        app: "k8s-provisioner"
+                    }
+                }
+                spec: {
+                    serviceAccountName: "k8s-provisioner"
+                    containers: [{
+                        name: "controller"
+                        command: ["/bin/k8s run"]
+                        image:           "quay.io/operator-framework/olm@sha256:e74b2ac57963c7f3ba19122a8c31c9f2a0deb3c0c5cac9e5323ccffd0ca198ed"
+                        imagePullPolicy: "IfNotPresent"
+                        ports: [{
+                            containerPort: 8080
+                        }, {
+                            containerPort: 8081
+                            name:          "metrics"
+                            protocol:      "TCP"
+                        }]
+                        livenessProbe: {
+                            httpGet: {
+                                path: "/healthz"
+                                port: 8080
+                            }
+                        }
+                        readinessProbe: {
+                            httpGet: {
+                                path: "/healthz"
+                                port: 8080
+                            }
+                        }
+                    }]
+                }
+            }
+        }
+    }
+}
